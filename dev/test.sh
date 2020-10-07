@@ -8,7 +8,7 @@ isort --skip src/py/flwr/proto --check-only -rc src/py/flwr    && echo "- isort:
 black -q --exclude "src\/py\/flwr\/proto" --check src/py/flwr  && echo "- black:  done" &&
 # docformatter is missing --exclude src/py/flwr/proto 
 # docformatter -c -r src/py/flwr  && echo "- docformatter:  done" &&
-mypy src/py                                                    && echo "- mypy:   done" &&
+# mypy src/py                                                    && echo "- mypy:   done" &&
 pylint --ignore=src/py/flwr/proto src/py/flwr                  && echo "- pylint: done" &&
 pytest -q src/py/flwr                                          && echo "- pytest: done" &&
 echo "- All Python checks passed"

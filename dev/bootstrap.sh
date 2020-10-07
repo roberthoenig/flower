@@ -11,12 +11,11 @@ python -m pip install -U setuptools==49.3.1
 python -m pip install -U poetry==1.0.10
 
 # Use `poetry` to install project dependencies
-python -m poetry install \
+poetry install \
   --extras "baseline" \
   --extras "examples-pytorch" \
-  --extras "examples-tensorflow" \
   --extras "http-logger" \
   --extras "ops"
 
 # Temporary workaround (Poetry 1.0.9 cannot install TensorFlow 2.2.0)
-python -m pip install -U tensorflow-cpu==2.2.0
+# python -m pip install -U tensorflow-cpu==2.2.0
