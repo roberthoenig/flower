@@ -73,10 +73,13 @@ class Server:
         start_time = timeit.default_timer()
 
         for current_round in range(1, num_rounds + 1):
+            log(DEBUG, f"Starting round {current_round}")
             # Train model and replace previous global model
             weights_prime = self.fit_round(rnd=current_round)
             if weights_prime is not None:
-                self.weights = weights_prime
+                # print("Not NONE: ", weights_prime[0])
+                for w, w_prime in zip(self.weights, weights_prime):
+                    w += w_prime
 
             # Evaluate model using strategy implementation
             res_cen = self.strategy.evaluate(weights=self.weights)
