@@ -60,7 +60,7 @@ class Server:
         history = History()
         # Initialize weights by asking one client to return theirs
         self.weights = self._get_initial_weights()
-        res = self.strategy.evaluate(weights=self.weights)
+        res = self.strategy.evaluate(weights=self.weights, rnd=0)
         if res is not None:
             log(
                 INFO, "initial weights (loss/accuracy): %s, %s", res[0], res[1],
@@ -82,7 +82,7 @@ class Server:
                     w += w_prime
 
             # Evaluate model using strategy implementation
-            res_cen = self.strategy.evaluate(weights=self.weights)
+            res_cen = self.strategy.evaluate(weights=self.weights, rnd=current_round)
             if res_cen is not None:
                 loss_cen, acc_cen = res_cen
                 log(
