@@ -44,11 +44,13 @@ class Server:
     """Flower server."""
 
     def __init__(
-        self, client_manager: ClientManager, strategy: Optional[Strategy] = None
+        self, client_manager: ClientManager, strategy: Optional[Strategy] = None,
+        starting_round = 0
     ) -> None:
         self._client_manager: ClientManager = client_manager
         self.weights: Weights = []
         self.strategy: Strategy = strategy if strategy is not None else DefaultStrategy()
+        self.starting_round = starting_round
 
     def client_manager(self) -> ClientManager:
         """Return ClientManager."""
@@ -72,7 +74,7 @@ class Server:
         log(INFO, "[TIME] FL starting")
         start_time = timeit.default_timer()
 
-        for current_round in range(1, num_rounds + 1):
+        for current_round in range(self.starting_round, self.starting_round + num_rounds + 1):
             log(DEBUG, f"Starting round {current_round}")
             # Train model and replace previous global model
             weights_prime = self.fit_round(rnd=current_round)
