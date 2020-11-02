@@ -17,6 +17,7 @@
 
 import concurrent.futures
 import timeit
+import itertools
 from logging import DEBUG, INFO
 from typing import List, Optional, Tuple, cast
 
@@ -112,6 +113,10 @@ class Server:
             should_continue = self.strategy.on_conclude_round(current_round, loss, acc)
             if not should_continue:
                 break
+            total_seconds = timeit.default_timer() - start_time
+            seconds_per_round = total_seconds/(current_round+1-self.starting_round)
+            etc_minutes = num_rounds * (seconds_per_round/60)
+            log(DEBUG, f"[TIME] ETC: {etc_minutes} minutes.")
 
         end_time = timeit.default_timer()
         elapsed = end_time - start_time
@@ -161,13 +166,16 @@ class Server:
 
         # Collect training results from all clients participating in this round
         results, failures = fit_clients(client_instructions)
+        print("FAILURES: ", failures)
         log(
             DEBUG,
             "fit_round received %s results and %s failures",
             len(results),
             len(failures),
         )
-
+        if len(failures) > 0:
+            import sys
+            sys.exit(1)
         # Aggregate training results
         return self.strategy.on_aggregate_fit(rnd, results, failures)
 
@@ -182,25 +190,29 @@ def fit_clients(
     client_instructions: List[Tuple[ClientProxy, FitIns]]
 ) -> FitResultsAndFailures:
     """Refine weights concurrently on all selected clients."""
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(fit_client, c, ins) for c, ins in client_instructions
-        ]
-        concurrent.futures.wait(futures)
     # Gather results
     results: List[Tuple[ClientProxy, FitRes]] = []
     failures: List[BaseException] = []
-    for future in futures:
-        failure = future.exception()
-        if failure is not None:
-            failures.append(failure)
-        else:
-            # Potential success case
-            result = future.result()
-            if len(result[1].parameters.tensors) > 0:
-                results.append(result)
+    distinct_cids = {c.cid for c, _ in client_instructions}
+    ins_by_client = [[(c, ins) for c, ins in client_instructions if c.cid==cid] for cid in distinct_cids]
+    for client_ins in itertools.zip_longest(*ins_by_client):
+        client_ins = [c for c in client_ins if c is not None]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(fit_client, c, ins) for c, ins in client_ins
+            ]
+            concurrent.futures.wait(futures)
+        for future in futures:
+            failure = future.exception()
+            if failure is not None:
+                failures.append(failure)
             else:
-                failures.append(Exception("Empty client update"))
+                # Potential success case
+                result = future.result()
+                if len(result[1].parameters.tensors) > 0:
+                    results.append(result)
+                else:
+                    failures.append(Exception("Empty client update"))
     return results, failures
 
 
@@ -214,21 +226,25 @@ def evaluate_clients(
     client_instructions: List[Tuple[ClientProxy, EvaluateIns]]
 ) -> EvaluateResultsAndFailures:
     """Evaluate weights concurrently on all selected clients."""
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(evaluate_client, c, ins) for c, ins in client_instructions
-        ]
-        concurrent.futures.wait(futures)
-    # Gather results
-    results: List[Tuple[ClientProxy, EvaluateRes]] = []
+    results: List[Tuple[ClientProxy, FitRes]] = []
     failures: List[BaseException] = []
-    for future in futures:
-        failure = future.exception()
-        if failure is not None:
-            failures.append(failure)
-        else:
-            # Success case
-            results.append(future.result())
+    distinct_cids = {c.cid for c, _ in client_instructions}
+    ins_by_client = [[(c, ins) for c, ins in client_instructions if c.cid==cid] for cid in distinct_cids]
+    for client_ins in itertools.zip_longest(*ins_by_client):
+        client_ins = [c for c in client_ins if c is not None]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(evaluate_client, c, ins) for c, ins in client_ins
+            ]
+            concurrent.futures.wait(futures)
+        # Gather results
+        for future in futures:
+            failure = future.exception()
+            if failure is not None:
+                failures.append(failure)
+            else:
+                # Success case
+                results.append(future.result())
     return results, failures
 
 
