@@ -115,7 +115,7 @@ class Server:
                 break
             total_seconds = timeit.default_timer() - start_time
             seconds_per_round = total_seconds/(current_round+1-self.starting_round)
-            etc_minutes = num_rounds * (seconds_per_round/60)
+            etc_minutes = (num_rounds - (current_round - self.starting_round)) * (seconds_per_round/60)
             log(DEBUG, f"[TIME] ETC: {etc_minutes} minutes.")
 
         end_time = timeit.default_timer()
