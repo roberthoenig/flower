@@ -74,8 +74,7 @@ class Server:
         # Run federated learning for num_rounds
         log(INFO, "[TIME] FL starting")
         start_time = timeit.default_timer()
-
-        for current_round in range(self.starting_round, self.starting_round + num_rounds + 1):
+        for current_round in range(self.starting_round, self.starting_round + num_rounds):
             log(DEBUG, f"Starting round {current_round}")
             # Train model and replace previous global model
             weights_prime = self.fit_round(rnd=current_round)
