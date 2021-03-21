@@ -192,7 +192,7 @@ def fit_clients(
     # Gather results
     results: List[Tuple[ClientProxy, FitRes]] = []
     failures: List[BaseException] = []
-    distinct_cids = {c.cid for c, _ in client_instructions}
+    distinct_cids = sorted(list({c.cid for c, _ in client_instructions}))
     ins_by_client = [[(c, ins) for c, ins in client_instructions if c.cid==cid] for cid in distinct_cids]
     for client_ins in itertools.zip_longest(*ins_by_client):
         client_ins = [c for c in client_ins if c is not None]
