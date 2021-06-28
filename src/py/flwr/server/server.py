@@ -16,6 +16,7 @@
 
 
 import concurrent.futures
+import copy
 import timeit
 import itertools
 from logging import DEBUG, INFO
@@ -63,6 +64,7 @@ class Server:
         history = History()
         # Initialize weights by asking one client to return theirs
         self.weights = self._get_initial_weights()
+        self.lo_quant_weights = copy.deepcopy(self.weights)
         res = self.strategy.evaluate(weights=self.weights, rnd=0)
         if res is not None:
             log(
@@ -77,10 +79,13 @@ class Server:
         for current_round in range(self.starting_round, self.starting_round + num_rounds):
             log(DEBUG, f"Starting round {current_round}")
             # Train model and replace previous global model
-            weights_prime = self.fit_round(rnd=current_round)
+            weights_prime, weights_lo_quant_prime = self.fit_round(rnd=current_round)
+            self.lo_quant_weights = copy.deepcopy(self.weights)
             if weights_prime is not None:
                 # print("Not NONE: ", weights_prime[0])
                 for w, w_prime in zip(self.weights, weights_prime):
+                    w += w_prime
+                for w, w_prime in zip(self.lo_quant_weights, weights_lo_quant_prime):
                     w += w_prime
 
             # Evaluate model using strategy implementation
@@ -154,7 +159,7 @@ class Server:
         """Perform a single round of federated averaging."""
         # Get clients and their respective instructions from strategy
         client_instructions = self.strategy.on_configure_fit(
-            rnd=rnd, weights=self.weights, client_manager=self._client_manager
+            rnd=rnd, weights=self.weights, lo_quant_weights=self.lo_quant_weights, client_manager=self._client_manager
         )
         log(
             DEBUG, "fit_round: strategy sampled %s clients", len(client_instructions),
