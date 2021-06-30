@@ -17,6 +17,7 @@
 
 import concurrent.futures
 import copy
+import numpy as np
 import timeit
 import itertools
 from logging import DEBUG, INFO
@@ -158,7 +159,7 @@ class Server:
     def fit_round(self, rnd: int) -> Optional[Weights]:
         """Perform a single round of federated averaging."""
         # Get clients and their respective instructions from strategy
-        client_instructions = self.strategy.on_configure_fit(
+        client_instructions, on_configure_fit_args = self.strategy.on_configure_fit(
             rnd=rnd, weights=self.weights, lo_quant_weights=self.lo_quant_weights, client_manager=self._client_manager
         )
         log(
@@ -181,7 +182,7 @@ class Server:
             import sys
             sys.exit(1)
         # Aggregate training results
-        return self.strategy.on_aggregate_fit(rnd, results, failures)
+        return self.strategy.on_aggregate_fit(rnd, results, failures, on_configure_fit_args)
 
     def _get_initial_weights(self) -> Weights:
         """Get initial weights from one of the available clients."""
@@ -191,19 +192,19 @@ class Server:
 
 
 def fit_clients(
-    client_instructions: List[Tuple[ClientProxy, FitIns]]
+    client_instructions: List[Tuple[ClientProxy, FitIns, str]]
 ) -> FitResultsAndFailures:
     """Refine weights concurrently on all selected clients."""
     # Gather results
-    results: List[Tuple[ClientProxy, FitRes]] = []
+    results: List[Tuple[ClientProxy, FitRes, str]] = []
     failures: List[BaseException] = []
-    distinct_cids = sorted(list({c.cid for c, _ in client_instructions}))
-    ins_by_client = [[(c, ins) for c, ins in client_instructions if c.cid==cid] for cid in distinct_cids]
+    distinct_cids = sorted(list({c.cid for (c, _, _) in client_instructions}))
+    ins_by_client = [[(c, ins, name) for (c, ins, name) in client_instructions if c.cid==cid] for cid in distinct_cids]
     for client_ins in itertools.zip_longest(*ins_by_client):
         client_ins = [c for c in client_ins if c is not None]
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
-                executor.submit(fit_client, c, ins) for c, ins in client_ins
+                executor.submit(fit_client, c, ins, name) for c, ins, name in client_ins
             ]
             concurrent.futures.wait(futures)
         for future in futures:
@@ -220,10 +221,10 @@ def fit_clients(
     return results, failures
 
 
-def fit_client(client: ClientProxy, ins: FitIns) -> Tuple[ClientProxy, FitRes]:
+def fit_client(client: ClientProxy, ins: FitIns, client_name) -> Tuple[ClientProxy, FitRes]:
     """Refine weights on a single client."""
     fit_res = client.fit(ins)
-    return client, fit_res
+    return client, fit_res, client_name
 
 
 def evaluate_clients(
